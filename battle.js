@@ -1,4 +1,4 @@
-import {values,radians,formulaTex} from './math.js';
+import {values,radians,formulaTex,displayValue} from './math.js';
 import {math,typeset} from './math-render.js';
 import {makeDeck,validRoom,progress,penaltyUntil,outcome,ROUND_COUNT,COUNTDOWN_MS,WRONG_PENALTY_MS,MAX_ATTEMPTS} from './battle-engine.js';
 import {connectFirebase,isConfigured} from './battle-firebase.js';
@@ -108,7 +108,7 @@ function renderMatch(){
  if(lastQuestion!==key){
   lastQuestion=key;$('race-feedback').textContent='';const label=room.unit==='rad'?radians(q.deg):`${q.deg}°`;
   $('race-question').innerHTML=math(`${q.fn} (${label}) = ?`,formulaTex(q.fn,label));$('race-question').classList.remove('question-enter');void $('race-question').offsetWidth;$('race-question').classList.add('question-enter');
-  $('race-answers').replaceChildren();for(const value of values){const b=document.createElement('button');b.dataset.value=value;b.setAttribute('aria-label',value);b.innerHTML=math(value);b.onclick=()=>submit(value);$('race-answers').append(b);}typeset();
+  $('race-answers').replaceChildren();for(const value of values){const b=document.createElement('button');const label=displayValue(value);b.dataset.value=value;b.setAttribute('aria-label',label);b.innerHTML=math(label);b.onclick=()=>submit(value);$('race-answers').append(b);}typeset();
  }
  const lockedUntil=Math.max(localPenaltyUntil,penaltyUntil(room,backend.uid)),remaining=lockedUntil-backend.now();
  if(remaining>0)$('race-feedback').textContent=`不正解。あと ${Math.ceil(remaining/1000)} 秒は回答できません。`;
