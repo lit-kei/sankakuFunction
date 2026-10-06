@@ -1,6 +1,6 @@
 import {question,values,answer,radians,tex,formulaTex} from './math.js';
 const $=id=>document.getElementById(id);let unit='rad',current,selected=null,done=false,count=0,last='';
-function math(label, source=tex(label)){return `<span class="math" data-tex="${source}" aria-label="${label}">${label}</span>`;}
+function math(label, source=tex(label)){return `<span class="math" role="img" data-tex="${source}" aria-label="${label}">${label}</span>`;}
 let mathQueue=Promise.resolve();
 function typeset(){
  const mj=window.MathJax;
@@ -11,6 +11,10 @@ function typeset(){
    if(node.dataset.rendered===node.dataset.tex)continue;
    const source=node.dataset.tex;
    const output=await mj.tex2svgPromise(source,{display:false});
+   // The labelled wrapper already provides the accessible equation. Keep only
+   // the visual SVG: conversion can add an unstyled MathML copy beside it.
+   output.querySelectorAll('mjx-assistive-mml').forEach(copy=>copy.remove());
+   output.setAttribute('aria-hidden','true');
    if(node.isConnected&&node.dataset.tex===source){node.replaceChildren(output);node.dataset.rendered=source;}
   }
  }).catch(error=>{console.error('数式を描画できませんでした。',error);});
