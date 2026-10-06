@@ -1,5 +1,5 @@
 import {validRoom,progress,outcome,COUNTDOWN_MS} from './battle-engine.js';
-export const INITIAL_RATING=1500,K_FACTOR=32;
+export const INITIAL_RATING=1500,K_FACTOR=32,DAILY_PAIR_LIMIT=5;
 export function initialRating(){return {rating:INITIAL_RATING,games:0,wins:0,losses:0,draws:0};}
 export function elo(a,b,scoreA){
   if(![a,b].every(Number.isFinite)||![0,.5,1].includes(scoreA))throw Error('Invalid Elo input');
@@ -15,9 +15,16 @@ export function settleRating(state,roomId,now) {
   const result=outcome(room);
   if(!result)return false;
   const profileA=state.profiles?.[room.from],profileB=state.profiles?.[room.to];
-  const ranked=room.ranked===true&&profileA&&profileB&&room.status!=='cancelled'
+  const eligible=room.ranked===true&&profileA&&profileB&&room.status!=='cancelled'
     &&(result.type!=='forfeit'||(Number.isFinite(room.cancelledAt)&&room.cancelledAt>=room.acceptedAt+COUNTDOWN_MS));
-  const settlement={rated:!!ranked,type:result.type,winner:result.winner||null,at:now};
+  let ranked=!!eligible,pairDailyCount=0;
+  if(eligible){
+    const day=String(Math.floor((now+9*60*60*1000)/(24*60*60*1000))),[first,second]=[room.from,room.to].sort();
+    pairDailyCount=state.dailyPairMatches?.[day]?.[first]?.[second]||0;
+    if(pairDailyCount>=DAILY_PAIR_LIMIT)ranked=false;
+    else{state.dailyPairMatches??={};state.dailyPairMatches[day]??={};state.dailyPairMatches[day][first]??={};state.dailyPairMatches[day][first][second]=++pairDailyCount;}
+  }
+  const settlement={rated:ranked,type:result.type,winner:result.winner||null,at:now,...(eligible?{pairDailyCount}:{}),...(eligible&&!ranked?{reason:'daily_pair_limit'}:{})};
   if(ranked) {
     const a=state.ratings?.[room.from]||initialRating(),b=state.ratings?.[room.to]||initialRating();
     const score=result.type==='draw'?.5:result.winner===room.from?1:0;

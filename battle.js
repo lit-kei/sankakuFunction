@@ -15,6 +15,13 @@ function show(id){for(const view of ['entry','lobby','arena'])$(view).hidden=vie
 function button(text,fn,disabled=false){const b=document.createElement('button');b.className='secondary';b.textContent=text;b.disabled=disabled;b.onclick=fn;return b;}
 function playerRow(name,description){const row=document.createElement('div');row.className='player-row';const avatar=document.createElement('div');avatar.className='avatar';avatar.textContent=Array.from(name)[0]||'?';const info=document.createElement('div');info.className='player-info';const title=document.createElement('b');title.textContent=name;const sub=document.createElement('small');sub.textContent=description;info.append(title,sub);row.append(avatar,info);return row;}
 function empty(container,text){const p=document.createElement('p');p.className='empty-list';p.textContent=text;container.append(p);}
+function renderChat(messages){
+ const container=$('chat-messages'),nearBottom=container.scrollHeight-container.scrollTop-container.clientHeight<40;
+ container.replaceChildren();const entries=Object.values(messages||{}).filter(item=>item&&typeof item.text==='string').sort((a,b)=>a.at-b.at).slice(-30);
+ if(!entries.length)empty(container,'まだメッセージはありません。');
+ for(const item of entries){const row=document.createElement('div');row.className='chat-message';const name=document.createElement('b');name.textContent=item.name;const text=document.createElement('span');text.textContent=item.text;const time=document.createElement('time');time.textContent=Number.isFinite(item.at)?new Date(item.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'';row.append(name,text,time);container.append(row);}
+ if(nearBottom)container.scrollTop=container.scrollHeight;
+}
 function renderLobby(){
  if(!backend)return;
  const active=Object.entries(players).filter(([uid,p])=>uid!==backend.uid&&p.lastSeen>backend.now()-15000);
@@ -47,7 +54,7 @@ async function join(mode){
   backend=b;connected=true;if(b.profile)$('player-name').value=b.profile.username;$('my-name').textContent=`あなた：${name} · ${$('battle-unit').value==='rad'?'弧度法':'度数法'}で申請`;
   $('mode-label').textContent=mode==='demo'?'LOCAL DEMO · 同じブラウザー内':'ONLINE LOBBY';
   message(mode==='demo'?'お試し対戦です。同じブラウザーの別タブでもこのページを開き、別の名前で入室してください。別の端末にはつながりません。':'');
-  subscriptions.push(b.watchLobby(data=>{players=data;renderLobby();if(invitationIds.length)renderInvitations(Object.fromEntries(invitationIds.map(id=>[id,true]))).catch(()=>{});}),b.watchInbox(ids=>renderInvitations(ids).catch(error=>message(errorMessage(error)))));
+  subscriptions.push(b.watchLobby(data=>{players=data;renderLobby();renderMatch();if(invitationIds.length)renderInvitations(Object.fromEntries(invitationIds.map(id=>[id,true]))).catch(()=>{});}),b.watchInbox(ids=>renderInvitations(ids).catch(error=>message(errorMessage(error)))),b.watchChat(renderChat));
   if(b.watchRatings)subscriptions.push(b.watchRatings(data=>{ratingData=data;renderLobby();}),b.watchProfiles(data=>{profileData=data;renderLobby();}));
   show('lobby');renderLobby();
  }catch(error){message(errorMessage(error));}finally{$('join').disabled=false;$('demo').disabled=false;}
@@ -60,6 +67,7 @@ function watchMatch(id){
  unRoom?.();roomId=id;lastQuestion='';lastResult='';
  unRoom=backend.watchRoom(id,data=>{
   if(!data)return;if(!validRoom(data)){message('無効な問題を含む対戦です。ロビーに戻ってください。');return;}
+  if(data.rematchRoomId&&data.rematchRoomId!==id){queueMicrotask(()=>watchMatch(data.rematchRoomId));return;}
   room=data;
   if(room.status==='invited'){show('lobby');renderLobby();return;}
   if(room.status==='cancelled'){returnLobby().catch(error=>message(errorMessage(error)));message('対戦申請は取り消されました。');return;}
@@ -80,7 +88,10 @@ function renderMatch(){
   const winnerProgress=result.type==='draw'?self:progress(room,result.winner);
   $('result-detail').textContent=result.type==='forfeit'?(result.winner===backend.uid?'相手が対戦を終了したため、あなたの勝ちです。':'対戦を終了しました。相手の勝ちです。'):`${result.type==='draw'?'ふたりとも':'勝者は'} ${((winnerProgress.finishAt-room.acceptedAt-COUNTDOWN_MS)/1000).toFixed(2)} 秒で10問正解。あなた ${self.correct} 問 · 相手 ${other.correct} 問`;
   const change=room.settlement?.players?.[backend.uid];
-  $('rating-change').textContent=change?`R ${change.before} → ${change.after}（${change.delta>0?'+':''}${change.delta}）`:room.ranked&&!room.settlement?'レートを集計しています…':room.ranked&&!room.settlement?.rated?'レート変更なし（開始前に終了しました）':'フレンドリー対戦のためレートは変わりません。';
+  $('rating-change').textContent=change?`R ${change.before} → ${change.after}（${change.delta>0?'+':''}${change.delta}）${room.settlement?.pairDailyCount===5?' · 本日5回目':''}`:room.settlement?.reason==='daily_pair_limit'?'同じ相手との本日のレーティング対戦は5回に達したため、レート変更なし':room.ranked&&!room.settlement?'レートを集計しています…':room.ranked&&!room.settlement?.rated?'レート変更なし':'フレンドリー対戦のためレートは変わりません。';
+  const presence=players[otherId],available=connected&&presence?.state==='playing'&&presence.roomId===roomId&&presence.lastSeen>backend.now()-15000,mine=!!room.rematchRequests?.[backend.uid],theirs=!!room.rematchRequests?.[otherId],rematch=$('rematch');
+  rematch.disabled=busy||mine||!available;rematch.classList.toggle('rematch-alert',theirs&&!mine&&available);rematch.textContent=mine?'相手を待っています…':theirs&&available?'相手が再戦を希望 · 再戦する':'再戦';
+  if(mine&&!available&&!room.rematchRoomId)queueMicrotask(()=>action('rematch-left',async()=>{await returnLobby();message('相手が対戦から抜けたため、ロビーに戻りました。');}));
   if(lastResult!==JSON.stringify(result)){lastResult=JSON.stringify(result);$('result').classList.remove('result-enter');void $('result').offsetWidth;$('result').classList.add('result-enter');}
   return;
  }
@@ -104,11 +115,18 @@ async function submit(value){
  try{await backend.submit(roomId,index,value);if(value!==q.value&&progress(room,backend.uid).correct===index)$('race-feedback').textContent='惜しい！もう一度選んでください。';}
  catch(error){message(errorMessage(error));}finally{busy=false;renderMatch();}
 }
+async function requestRematch(){
+ if(!room||!outcome(room))return;const current=roomId,other=room.from===backend.uid?room.to:room.from,presence=players[other];
+ if(!presence||presence.state!=='playing'||presence.roomId!==current||presence.lastSeen<=backend.now()-15000){await returnLobby();message('相手が対戦から抜けたため、ロビーに戻りました。');return;}
+ try{const result=await backend.requestRematch(current);if(result?.roomId)watchMatch(result.roomId);}
+ catch(error){if(error.code==='functions/failed-precondition'||/退出/.test(error.message||'')){await returnLobby();message('相手が対戦から抜けたため、ロビーに戻りました。');return;}throw error;}
+}
 async function returnLobby(){unRoom?.();unRoom=null;roomId=null;room=null;lastQuestion='';lastResult='';await backend.reset();show('lobby');renderLobby();await renderInvitations(Object.fromEntries(invitationIds.map(id=>[id,true])));}
 async function leave(){if(roomId&&room&&!outcome(room))await backend.cancel(roomId);unRoom?.();unRoom=null;for(const un of subscriptions)un();subscriptions=[];await backend.close();backend=null;room=null;roomId=null;players={};invitationIds=[];lobbySignature='';show('entry');message();}
 $('join-form').onsubmit=e=>{e.preventDefault();action('join',()=>join('online'));};$('demo').onclick=()=>action('join',()=>join('demo'));
 $('leave').onclick=()=>action('leave',leave);$('cancel-invite').onclick=()=>action('cancel',()=>backend.cancel(roomId));
 $('forfeit').onclick=()=>action('forfeit',()=>backend.cancel(roomId));$('return-lobby').onclick=()=>action('return',returnLobby);
+$('rematch').onclick=()=>action('rematch',requestRematch);$('chat-form').onsubmit=e=>{e.preventDefault();const input=$('chat-input'),text=input.value.trim();if(!text||!backend)return;input.disabled=true;action('chat',async()=>{try{await backend.sendChat(text);input.value='';}finally{input.disabled=false;input.focus();}});};
 window.addEventListener('battle-error',e=>message(e.detail));window.addEventListener('battle-connection',e=>{connected=e.detail;if(backend?.mode==='online')message(connected?'':'接続が切れました。再接続しています。');renderLobby();renderMatch();});
 window.addEventListener('pagehide',()=>{if(backend){if(roomId&&room&&!outcome(room))backend.cancel(roomId).catch(()=>{});backend.close().catch(()=>{});}});
 setInterval(()=>{

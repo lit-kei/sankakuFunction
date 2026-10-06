@@ -4,12 +4,13 @@ import {getServices} from './firebase-client.js';
 export function isConfigured(){return ['apiKey','databaseURL','projectId','appId'].every(key=>typeof firebaseConfig[key]==='string'&&firebaseConfig[key].length>0);}
 export async function connectFirebase() {
   if(!isConfigured())throw Error('オンライン対戦は準備中です。Firebase の接続設定が必要です。下のお試し対戦は利用できます。');
-  const {auth,authSDK,db,dbSDK}=await getServices();
+  const {auth,authSDK,db,dbSDK,functions,fnSDK}=await getServices();
   if(!auth.currentUser)await authSDK.signInAnonymously(auth);
   const user=auth.currentUser,uid=user.uid,root='trigBattle';
   const profile=user.isAnonymous?null:(await dbSDK.get(dbSDK.ref(db,`${root}/profiles/${uid}`))).val();
   if(!user.isAnonymous&&!profile)throw Error('アカウントページで登録を完了してから対戦してください。');
   const path=p=>dbSDK.ref(db,`${root}/${p}`);
+  const rematchCall=fnSDK.httpsCallable(functions,'requestRematch');
   let offset=0,name='',heartbeat,connected=false,activeState='lobby',activeRoom=null;
   const unOffset=dbSDK.onValue(dbSDK.ref(db,'.info/serverTimeOffset'),s=>{offset=s.val()||0;});
   const now=()=>Date.now()+offset;
@@ -18,6 +19,7 @@ export async function connectFirebase() {
   let unConnected,owned=false;
   return {uid,mode:'online',now,profile,
     watchRatings:cb=>watch('ratings',cb),watchProfiles:cb=>watch('profiles',cb),
+    watchChat:cb=>dbSDK.onValue(dbSDK.query(path('chat/messages'),dbSDK.orderByChild('at'),dbSDK.limitToLast(30)),s=>cb(s.val()||{}),error=>window.dispatchEvent(new CustomEvent('battle-error',{detail:error.message}))),
     async join(value){
       name=profile?.username||value;
       const reserved=await dbSDK.runTransaction(path(`presence/${uid}`),p=>!p||p.lastSeen<now()-15000?presence():undefined,{applyLocally:false});
@@ -64,6 +66,8 @@ export async function connectFirebase() {
       const p=progress(room,uid);
       await dbSDK.set(path(`rooms/${id}/moves/${uid}/${p.attempts}`),{index,value,seq:p.attempts,at:dbSDK.serverTimestamp()});
     },
+    async requestRematch(id){return (await rematchCall({roomId:id})).data;},
+    async sendChat(text){const target=dbSDK.push(path('chat/messages'));await dbSDK.set(target,{uid,name,text:text.trim(),at:dbSDK.serverTimestamp()});},
     async reset(){activeState='lobby';activeRoom=null;await dbSDK.set(path(`presence/${uid}`),presence());},
     async close(){
       clearInterval(heartbeat);unOffset();unConnected?.();

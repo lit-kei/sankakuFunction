@@ -50,6 +50,12 @@ export function applyAction(state,uid,action,now) {
   if(action.type==='heartbeat') {if(me)me.lastSeen=now;return;}
   if(action.type==='leave') {delete state.presence[uid];return;}
   if(!me)throw Error('ロビーに入り直してください。');
+  if(action.type==='chat') {
+    const text=String(action.text||'').trim();
+    if(me.state!=='lobby'||!text||text.length>120||/[\r\n]/.test(text))throw Error('メッセージは120文字以内で入力してください。');
+    state.chat??={};state.chat[action.id]={uid,name:me.name,text,at:now};
+    const old=Object.entries(state.chat).sort(([,a],[,b])=>a.at-b.at).slice(0,-30);for(const [id]of old)delete state.chat[id];return;
+  }
   if(action.type==='invite') {
     const other=state.presence[action.room.to];
     if(me.state!=='lobby'||!other||other.state!=='lobby'||other.lastSeen<now-15000)throw Error('相手は現在対戦できません。');

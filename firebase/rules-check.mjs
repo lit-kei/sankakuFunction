@@ -15,6 +15,9 @@ try {
   await assertFails(get(ref(anon,`${root}/presence`)));
   await assertSucceeds(presence(alice,'alice','Alice'));await assertSucceeds(presence(bob,'bob','Bob'));await assertSucceeds(presence(eve,'eve','Eve'));
   await assertFails(presence(eve,'alice','Hijacked'));
+  await assertSucceeds(set(ref(alice,`${root}/chat/messages/message1`),{uid:'alice',name:'Alice',text:'こんにちは',at:serverTimestamp()}));
+  await assertFails(set(ref(eve,`${root}/chat/messages/message2`),{uid:'alice',name:'Alice',text:'なりすまし',at:serverTimestamp()}));
+  await assertFails(get(ref(anon,`${root}/chat/messages`)));await assertSucceeds(get(ref(bob,`${root}/chat/messages`)));
   await assertFails(set(ref(alice,`${root}/ratings/alice`),{rating:9999,games:10}));
   await assertFails(set(ref(alice,`${root}/profiles/alice`),{username:'Alice',accountType:'school'}));
   await assertFails(get(ref(eve,`${root}/privateProfiles/alice`)));
@@ -33,6 +36,7 @@ try {
     [`${root}/presence/bob`]:{name:'Bob',state:'playing',roomId:'match',lastSeen:serverTimestamp()},
     [`${root}/presence/alice/state`]:'playing',[`${root}/inbox/bob/match`]:null,
   }));
+  await assertFails(set(ref(alice,`${root}/chat/messages/message3`),{uid:'alice',name:'Alice',text:'対戦中',at:serverTimestamp()}));
   await assertFails(set(ref(alice,`${root}/rooms/match/moves/alice/0`),{index:0,value:deck[0].value,at:serverTimestamp()}));
   await assertFails(set(ref(alice,`${root}/rooms/match/deck/0/value`),'0'));
   await new Promise(resolve=>setTimeout(resolve,5100));
