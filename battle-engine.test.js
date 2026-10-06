@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makeDeck,validRoom,applyAction,progress,outcome,COUNTDOWN_MS} from './battle-engine.js';
+import {makeDeck,validRoom,applyAction,progress,penaltyUntil,outcome,COUNTDOWN_MS,WRONG_PENALTY_MS} from './battle-engine.js';
 function setup(){const state={presence:{},rooms:{},inbox:{}};applyAction(state,'a',{type:'join',name:'Alice'},1000);applyAction(state,'b',{type:'join',name:'Bob'},1000);applyAction(state,'a',{type:'invite',id:'room',room:{from:'a',to:'b',fromName:'Alice',toName:'Bob',unit:'rad',deck:makeDeck()}},1000);return state;}
 test('共有問題は10問・全て範囲内の有名角・tan未定義を除外',()=>{for(let n=0;n<100;n++){const deck=makeDeck();assert.equal(deck.length,10);assert.ok(validRoom({from:'a',to:'b',unit:'rad',deck}));for(const q of deck)assert.ok(q.deg>=-900&&q.deg<=900);}});
 test('承諾・カウントダウン・誤答の再回答・先着の勝者',()=>{
@@ -8,8 +8,9 @@ test('承諾・カウントダウン・誤答の再回答・先着の勝者',()=
  assert.throws(()=>applyAction(state,'a',{type:'submit',id:'room',index:0,value:room.deck[0].value},1201));
  const start=1200+COUNTDOWN_MS;
  const wrong=room.deck[0].value==='0'?'1':'0';applyAction(state,'a',{type:'submit',id:'room',index:0,value:wrong},start);
- assert.equal(progress(room,'a').correct,0);assert.equal(progress(room,'a').attempts,1);
- for(let i=0;i<10;i++){if(i<7)applyAction(state,'b',{type:'submit',id:'room',index:i,value:room.deck[i].value},start+i*200+1);applyAction(state,'a',{type:'submit',id:'room',index:i,value:room.deck[i].value},start+i*200+2);}
+ assert.equal(progress(room,'a').correct,0);assert.equal(progress(room,'a').attempts,1);assert.equal(penaltyUntil(room,'a'),start+WRONG_PENALTY_MS);
+ assert.throws(()=>applyAction(state,'a',{type:'submit',id:'room',index:0,value:room.deck[0].value},start+WRONG_PENALTY_MS-1));
+ for(let i=0;i<10;i++){if(i<7)applyAction(state,'b',{type:'submit',id:'room',index:i,value:room.deck[i].value},start+i*200+1);applyAction(state,'a',{type:'submit',id:'room',index:i,value:room.deck[i].value},start+WRONG_PENALTY_MS+i*200);}
  assert.equal(progress(room,'a').correct,10);assert.equal(progress(room,'b').correct,7);assert.equal(outcome(room).winner,'a');
  assert.throws(()=>applyAction(state,'b',{type:'submit',id:'room',index:7,value:room.deck[7].value},start+5000));
 });

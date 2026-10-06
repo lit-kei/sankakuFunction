@@ -1,12 +1,12 @@
 import {values,radians,formulaTex} from './math.js';
 import {math,typeset} from './math-render.js';
-import {makeDeck,validRoom,progress,outcome,ROUND_COUNT,COUNTDOWN_MS,MAX_ATTEMPTS} from './battle-engine.js';
+import {makeDeck,validRoom,progress,penaltyUntil,outcome,ROUND_COUNT,COUNTDOWN_MS,WRONG_PENALTY_MS,MAX_ATTEMPTS} from './battle-engine.js';
 import {connectFirebase,isConfigured} from './battle-firebase.js';
 import {connectDemo} from './battle-demo.js';
 import {getServices} from './firebase-client.js';
 
 const $=id=>document.getElementById(id);
-let backend=null,players={},room=null,roomId=null,subscriptions=[],unRoom=null,busy=false,lastQuestion='',lastResult='',inboxGeneration=0,connected=true;
+let backend=null,players={},room=null,roomId=null,subscriptions=[],unRoom=null,busy=false,lastQuestion='',lastResult='',localPenaltyUntil=0,inboxGeneration=0,connected=true;
 const pending=new Set();let invitationIds=[],lobbySignature='',ratingData={},profileData={};
 function message(text=''){$('notice').textContent=text;}
 function errorMessage(error){return error.code==='PERMISSION_DENIED'||error.code==='database/permission-denied'?'対戦へのアクセスが許可されていません。Firebase の対戦用ルールが公開されているか確認してください。':error.code==='auth/operation-not-allowed'?'オンライン対戦の準備中です。Firebase で匿名認証を有効にしてください。':error.message||'通信に失敗しました。もう一度お試しください。';}
@@ -64,7 +64,7 @@ async function challenge(uid){
  try{const id=crypto.randomUUID(),candidate={from:backend.uid,to:uid,fromName:players[backend.uid].name,toName:players[uid].name,unit:$('battle-unit').value,ranked:backend.mode==='online'&&!!backend.profile&&$('rated-match').checked,deck:makeDeck()};await backend.invite(id,candidate);watchMatch(id);}finally{busy=false;renderLobby();}
 }
 function watchMatch(id){
- unRoom?.();roomId=id;lastQuestion='';lastResult='';
+ unRoom?.();roomId=id;lastQuestion='';lastResult='';localPenaltyUntil=0;
  unRoom=backend.watchRoom(id,data=>{
   if(!data)return;if(!validRoom(data)){message('無効な問題を含む対戦です。ロビーに戻ってください。');return;}
   if(data.rematchRoomId&&data.rematchRoomId!==id){queueMicrotask(()=>watchMatch(data.rematchRoomId));return;}
@@ -106,13 +106,16 @@ function renderMatch(){
   $('race-question').innerHTML=math(`${q.fn} (${label}) = ?`,formulaTex(q.fn,label));$('race-question').classList.remove('question-enter');void $('race-question').offsetWidth;$('race-question').classList.add('question-enter');
   $('race-answers').replaceChildren();for(const value of values){const b=document.createElement('button');b.dataset.value=value;b.setAttribute('aria-label',value);b.innerHTML=math(value);b.onclick=()=>submit(value);$('race-answers').append(b);}typeset();
  }
- for(const b of $('race-answers').children)b.disabled=busy||!connected;
+ const lockedUntil=Math.max(localPenaltyUntil,penaltyUntil(room,backend.uid)),remaining=lockedUntil-backend.now();
+ if(remaining>0)$('race-feedback').textContent=`不正解。あと ${Math.ceil(remaining/1000)} 秒は回答できません。`;
+ else if(localPenaltyUntil||$('race-feedback').textContent.startsWith('不正解。あと ')){localPenaltyUntil=0;$('race-feedback').textContent='もう一度回答できます。';}
+ for(const b of $('race-answers').children)b.disabled=busy||!connected||remaining>0;
  if(self.attempts>=MAX_ATTEMPTS){$('race-feedback').textContent='回答回数の上限に達しました。ロビーに戻って再挑戦してください。';for(const b of $('race-answers').children)b.disabled=true;}
 }
 async function submit(value){
  if(busy||!connected||!room||outcome(room))return;
  const index=progress(room,backend.uid).correct,q=room.deck[index];busy=true;renderMatch();
- try{await backend.submit(roomId,index,value);if(value!==q.value&&progress(room,backend.uid).correct===index)$('race-feedback').textContent='惜しい！もう一度選んでください。';}
+ try{await backend.submit(roomId,index,value);if(value!==q.value&&progress(room,backend.uid).correct===index){localPenaltyUntil=backend.now()+WRONG_PENALTY_MS;$('race-feedback').textContent='不正解。10秒間は回答できません。';}}
  catch(error){message(errorMessage(error));}finally{busy=false;renderMatch();}
 }
 async function requestRematch(){
@@ -121,7 +124,7 @@ async function requestRematch(){
  try{const result=await backend.requestRematch(current);if(result?.roomId)watchMatch(result.roomId);}
  catch(error){if(error.code==='functions/failed-precondition'||/退出/.test(error.message||'')){await returnLobby();message('相手が対戦から抜けたため、ロビーに戻りました。');return;}throw error;}
 }
-async function returnLobby(){unRoom?.();unRoom=null;roomId=null;room=null;lastQuestion='';lastResult='';await backend.reset();show('lobby');renderLobby();await renderInvitations(Object.fromEntries(invitationIds.map(id=>[id,true])));}
+async function returnLobby(){unRoom?.();unRoom=null;roomId=null;room=null;lastQuestion='';lastResult='';localPenaltyUntil=0;await backend.reset();show('lobby');renderLobby();await renderInvitations(Object.fromEntries(invitationIds.map(id=>[id,true])));}
 async function leave(){if(roomId&&room&&!outcome(room))await backend.cancel(roomId);unRoom?.();unRoom=null;for(const un of subscriptions)un();subscriptions=[];await backend.close();backend=null;room=null;roomId=null;players={};invitationIds=[];lobbySignature='';show('entry');message();}
 $('join-form').onsubmit=e=>{e.preventDefault();action('join',()=>join('online'));};$('demo').onclick=()=>action('join',()=>join('demo'));
 $('leave').onclick=()=>action('leave',leave);$('cancel-invite').onclick=()=>action('cancel',()=>backend.cancel(roomId));

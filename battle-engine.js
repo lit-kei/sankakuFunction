@@ -2,6 +2,7 @@ import {question,answer,angles,values} from './math.js';
 
 export const ROUND_COUNT=10;
 export const COUNTDOWN_MS=5000;
+export const WRONG_PENALTY_MS=10000;
 export const MAX_ATTEMPTS=200;
 export function makeDeck(random=Math.random) {
   const deck=[];
@@ -28,6 +29,15 @@ export function progress(room,uid) {
     }
   }
   return {correct,finishAt,attempts};
+}
+export function penaltyUntil(room,uid) {
+  let correct=0,until=0;
+  for(const [,move] of Object.entries(room.moves?.[uid]||{}).sort(([a],[b])=>Number(a)-Number(b))) {
+    if(move.index!==correct)continue;
+    if(move.value===room.deck[correct]?.value){correct++;until=0;}
+    else if(Number.isFinite(move.at))until=move.at+WRONG_PENALTY_MS;
+  }
+  return until;
 }
 export function outcome(room) {
   if(room.status==='cancelled')return {type:'cancelled'};
@@ -79,6 +89,7 @@ export function applyAction(state,uid,action,now) {
   }
   if(action.type==='submit') {
     if(room.status!=='accepted'||outcome(room)||now<room.acceptedAt+COUNTDOWN_MS)throw Error('回答できる時間ではありません。');
+    if(now<penaltyUntil(room,uid))throw Error('誤答ペナルティ中です。10秒お待ちください。');
     const p=progress(room,uid);
     if(p.attempts>=MAX_ATTEMPTS||action.index!==p.correct||!values.includes(action.value))throw Error('回答が更新されています。');
     room.moves??={};const moves=room.moves[uid]??={};

@@ -46,6 +46,8 @@ try {
   await assertFails(move(alice,'alice',0,5,deck[5].value));
   const wrong=deck[0].value==='0'?'1':'0';await assertSucceeds(move(alice,'alice',0,0,wrong));
   await assertFails(move(alice,'alice',1,1,deck[1].value));
+  await assertFails(move(alice,'alice',1,0,deck[0].value));
+  await new Promise(resolve=>setTimeout(resolve,10100));
   await assertSucceeds(move(alice,'alice',1,0,deck[0].value));
   await assertFails(move(alice,'alice',1,0,deck[0].value));
   for(let i=1;i<10;i++)await assertSucceeds(move(alice,'alice',i+1,i,deck[i].value));
