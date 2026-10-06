@@ -115,7 +115,7 @@
             ".validate": false
           },
           "ranked": {
-            ".validate": "newData.isBoolean() && (!data.exists() || data.val() == newData.val()) && (!newData.val() || (root.child('trigBattle/profiles').child(newData.parent().child('from').val()).exists() && root.child('trigBattle/profiles').child(newData.parent().child('to').val()).exists()))"
+            ".validate": "newData.isBoolean() && (!data.exists() || data.val() == newData.val()) && (newData.val() == false || (root.child('trigBattle/profiles').child(newData.parent().child('from').val()).exists() && root.child('trigBattle/profiles').child(newData.parent().child('to').val()).exists()))"
           },
           "settlement": {
             ".write": false

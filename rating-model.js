@@ -30,3 +30,13 @@ export function settleRating(state,roomId,now) {
   }
   room.settlement=settlement;return true;
 }
+export function createSettlementTransaction(roomId,now=Date.now) {
+  return state=>{
+    // Admin transactions may first invoke the callback with an uncached null.
+    // Returning null (rather than undefined) asks the server to retry with its
+    // current value; undefined would abort before the room can be settled.
+    if(state===null)return null;
+    if(!settleRating(state,roomId,now()))return;
+    return state;
+  };
+}

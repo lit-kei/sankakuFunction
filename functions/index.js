@@ -4,7 +4,7 @@ import {onCall,HttpsError} from 'firebase-functions/v2/https';
 import {onValueWritten} from 'firebase-functions/v2/database';
 import {setGlobalOptions} from 'firebase-functions/v2';
 import {validateRegistration} from './shared/account-model.js';
-import {settleRating} from './shared/rating-model.js';
+import {createSettlementTransaction} from './shared/rating-model.js';
 import {registerProfileState} from './shared/profile-model.js';
 
 initializeApp({databaseURL:'https://sankakufunction-default-rtdb.firebaseio.com'});setGlobalOptions({region:'us-central1',maxInstances:3});
@@ -33,9 +33,5 @@ export const settleMatch=onValueWritten({ref:'trigBattle/rooms/{roomId}',instanc
   if(!observed||observed.settlement||observed.status==='invited')return;
   // Read the latest room in a transaction, rather than settling a stale event.
   const root=getDatabase().ref('trigBattle');
-  await root.get();
-  await root.transaction(state=>{
-    if(!settleRating(state,event.params.roomId,Date.now()))return;
-    return state;
-  },undefined,false);
+  await root.transaction(createSettlementTransaction(event.params.roomId),undefined,false);
 });
