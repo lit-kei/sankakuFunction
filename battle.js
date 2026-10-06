@@ -90,8 +90,12 @@ function renderMatch(){
   const change=room.settlement?.players?.[backend.uid];
   $('rating-change').textContent=change?`R ${change.before} → ${change.after}（${change.delta>0?'+':''}${change.delta}）${room.settlement?.pairDailyCount===5?' · 本日5回目':''}`:room.settlement?.reason==='daily_pair_limit'?'同じ相手との本日のレーティング対戦は5回に達したため、レート変更なし':room.ranked&&!room.settlement?'レートを集計しています…':room.ranked&&!room.settlement?.rated?'レート変更なし':'フレンドリー対戦のためレートは変わりません。';
   const presence=players[otherId],available=connected&&presence?.state==='playing'&&presence.roomId===roomId&&presence.lastSeen>backend.now()-15000,mine=!!room.rematchRequests?.[backend.uid],theirs=!!room.rematchRequests?.[otherId],rematch=$('rematch');
+  const opponentGone=!presence||presence.lastSeen<=backend.now()-15000||presence.state!=='playing';
   rematch.disabled=busy||mine||!available;rematch.classList.toggle('rematch-alert',theirs&&!mine&&available);rematch.textContent=mine?'相手を待っています…':theirs&&available?'相手が再戦を希望 · 再戦する':'再戦';
-  if(mine&&!available&&!room.rematchRoomId)queueMicrotask(()=>action('rematch-left',async()=>{await returnLobby();message('相手が対戦から抜けたため、ロビーに戻りました。');}));
+  // A different roomId can mean the rematch transaction has already moved the
+  // opponent to the next room while this client still has the old room snapshot.
+  // Do not treat that normal transition as the opponent leaving.
+  if(mine&&opponentGone&&!room.rematchRoomId)queueMicrotask(()=>action('rematch-left',async()=>{await returnLobby();message('相手が対戦から抜けたため、ロビーに戻りました。');}));
   if(lastResult!==JSON.stringify(result)){lastResult=JSON.stringify(result);$('result').classList.remove('result-enter');void $('result').offsetWidth;$('result').classList.add('result-enter');}
   return;
  }
