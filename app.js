@@ -1,25 +1,6 @@
 import {question,values,answer,radians,tex,formulaTex} from './math.js';
+import {math,typeset} from './math-render.js';
 const $=id=>document.getElementById(id);let unit='rad',current,selected=null,done=false,count=0,last='';
-function math(label, source=tex(label)){return `<span class="math" role="img" data-tex="${source}" aria-label="${label}">${label}</span>`;}
-let mathQueue=Promise.resolve();
-function typeset(){
- const mj=window.MathJax;
- if(!mj?.startup?.promise||!mj.tex2svgPromise)return;
- mathQueue=mathQueue.then(async()=>{
-  await mj.startup.promise;
-  for(const node of document.querySelectorAll('[data-tex]')){
-   if(node.dataset.rendered===node.dataset.tex)continue;
-   const source=node.dataset.tex;
-   const output=await mj.tex2svgPromise(source,{display:false});
-   // The labelled wrapper already provides the accessible equation. Keep only
-   // the visual SVG: conversion can add an unstyled MathML copy beside it.
-   output.querySelectorAll('mjx-assistive-mml').forEach(copy=>copy.remove());
-   output.setAttribute('aria-hidden','true');
-   if(node.isConnected&&node.dataset.tex===source){node.replaceChildren(output);node.dataset.rendered=source;}
-  }
- }).catch(error=>{console.error('数式を描画できませんでした。',error);});
-}
-window.addEventListener('mathjax-ready',typeset);
 function animateQuestion(){const card=$('formula');card.classList.remove('question-enter');void card.offsetWidth;card.classList.add('question-enter');}
 function angle(deg){return unit==='rad'?radians(deg):`${deg<0?'−':''}${Math.abs(deg)}°`;}
 function renderFormula(){$('formula').innerHTML=math(`${current.fn} (${angle(current.deg)}) = ?`, formulaTex(current.fn,angle(current.deg)));$('range').textContent=unit==='rad'?'−5π 〜 5π':'−900° 〜 900°';if(done)draw();typeset();}
