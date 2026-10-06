@@ -26,7 +26,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site
-          cp index.html style.css app.js math.js math-render.js battle.html battle.css battle.js battle-engine.js battle-demo.js battle-firebase.js firebase-config.js _site/
+          cp index.html style.css app.js math.js math-render.js battle.html battle.css battle.js battle-engine.js battle-demo.js battle-firebase.js firebase-config.js firebase-client.js account-model.js account.html account.css account.js rankings.html rankings.js _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

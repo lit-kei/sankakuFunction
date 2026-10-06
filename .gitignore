@@ -1,0 +1,5 @@
+node_modules/
+functions/shared/
+_site/
+*-debug.log
+.firebase/

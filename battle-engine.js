@@ -31,11 +31,14 @@ export function progress(room,uid) {
 }
 export function outcome(room) {
   if(room.status==='cancelled')return {type:'cancelled'};
-  if(room.status==='abandoned')return {type:'forfeit',winner:room.cancelledBy===room.from?room.to:room.from};
   const a=progress(room,room.from),b=progress(room,room.to);
-  if(a.finishAt===null&&b.finishAt===null)return null;
-  if(a.finishAt!==null&&b.finishAt!==null&&a.finishAt===b.finishAt)return {type:'draw'};
-  return {type:'finished',winner:b.finishAt===null||(a.finishAt!==null&&a.finishAt<b.finishAt)?room.from:room.to};
+  // A completed race takes precedence over a later forfeit.
+  if(a.finishAt!==null||b.finishAt!==null){
+    if(a.finishAt!==null&&b.finishAt!==null&&a.finishAt===b.finishAt)return {type:'draw'};
+    return {type:'finished',winner:b.finishAt===null||(a.finishAt!==null&&a.finishAt<b.finishAt)?room.from:room.to};
+  }
+  if(room.status==='abandoned')return {type:'forfeit',winner:room.cancelledBy===room.from?room.to:room.from};
+  return null;
 }
 // Shared protocol validation for the local two-tab demo and its tests.
 export function applyAction(state,uid,action,now) {
@@ -65,7 +68,7 @@ export function applyAction(state,uid,action,now) {
     delete state.inbox[uid]?.[action.id];return;
   }
   if(action.type==='cancel') {
-    if(['invited','accepted'].includes(room.status)){room.status=room.status==='invited'?'cancelled':'abandoned';room.cancelledBy=uid;}
+    if(['invited','accepted'].includes(room.status)){room.status=room.status==='invited'?'cancelled':'abandoned';room.cancelledBy=uid;room.cancelledAt=now;}
     return;
   }
   if(action.type==='submit') {

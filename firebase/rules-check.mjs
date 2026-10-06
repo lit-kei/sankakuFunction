@@ -15,6 +15,9 @@ try {
   await assertFails(get(ref(anon,`${root}/presence`)));
   await assertSucceeds(presence(alice,'alice','Alice'));await assertSucceeds(presence(bob,'bob','Bob'));await assertSucceeds(presence(eve,'eve','Eve'));
   await assertFails(presence(eve,'alice','Hijacked'));
+  await assertFails(set(ref(alice,`${root}/ratings/alice`),{rating:9999,games:10}));
+  await assertFails(set(ref(alice,`${root}/profiles/alice`),{username:'Alice',accountType:'school'}));
+  await assertFails(get(ref(eve,`${root}/privateProfiles/alice`)));
   await assertSucceeds(update(ref(alice,`${root}/presence/alice`),{state:'inviting',roomId:'match'}));
   const deck=makeDeck();const room={from:'alice',to:'bob',fromName:'Alice',toName:'Bob',unit:'rad',status:'invited',createdAt:serverTimestamp(),deck};
   const corrupt=structuredClone(room);corrupt.deck[0].value='not-an-answer';
@@ -43,7 +46,7 @@ try {
   await assertFails(move(alice,'alice',1,0,deck[0].value));
   for(let i=1;i<10;i++)await assertSucceeds(move(alice,'alice',i+1,i,deck[i].value));
   await assertFails(move(alice,'alice',11,9,deck[9].value));
-  await assertSucceeds(update(ref(bob,`${root}/rooms/match`),{status:'abandoned',cancelledBy:'bob'}));
+  await assertSucceeds(update(ref(bob,`${root}/rooms/match`),{status:'abandoned',cancelledBy:'bob',cancelledAt:serverTimestamp()}));
   await assertFails(move(bob,'bob',0,0,deck[0].value));
   assert.equal((await get(ref(alice,`${root}/rooms/match/status`))).val(),'abandoned');
   console.log('Firebase rules passed: authenticated lobby, valid deck, invitations, acceptance, countdown, correct sequencing, immutable moves, access isolation, server timestamps, abandonment.');

@@ -9,7 +9,7 @@
           ".write": "auth != null && (auth.uid == $uid || (data.child('state').val() == 'inviting' && root.child('trigBattle/rooms').child(data.child('roomId').val()).child('to').val() == auth.uid && root.child('trigBattle/rooms').child(data.child('roomId').val()).child('status').val() == 'invited' && newData.child('state').val() == 'playing' && newData.parent().parent().child('rooms').child(data.child('roomId').val()).child('status').val() == 'accepted' && newData.child('name').val() == data.child('name').val() && newData.child('roomId').val() == data.child('roomId').val() && newData.child('lastSeen').val() == data.child('lastSeen').val()))",
           ".validate": "newData.hasChildren(['name','state','lastSeen'])",
           "name": {
-            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20 && (!root.child('trigBattle/profiles').child($uid).exists() || newData.val() == root.child('trigBattle/profiles').child($uid).child('username').val())"
           },
           "state": {
             ".validate": "newData.isString() && newData.val().matches(/^(lobby|inviting|playing)$/)"
@@ -38,7 +38,7 @@
         "$roomId": {
           ".read": "auth != null && (data.child('from').val() == auth.uid || data.child('to').val() == auth.uid)",
           ".write": "auth != null && !data.exists() && newData.child('from').val() == auth.uid && root.child('trigBattle/presence').child(auth.uid).child('state').val() == 'inviting' && root.child('trigBattle/presence').child(auth.uid).child('roomId').val() == $roomId && root.child('trigBattle/presence').child(newData.child('to').val()).child('state').val() == 'lobby' && root.child('trigBattle/presence').child(newData.child('to').val()).child('lastSeen').val() > now - 15000",
-          ".validate": "newData.hasChildren(['from','to','fromName','toName','unit','deck','status','createdAt']) && newData.child('from').val() != newData.child('to').val() && $roomId.matches(/^[A-Za-z0-9_-]{1,64}$/) && (data.exists() || (!newData.hasChild('acceptedAt') && !newData.hasChild('cancelledBy') && !newData.hasChild('moves')))",
+          ".validate": "newData.hasChildren(['from','to','fromName','toName','unit','deck','status','createdAt']) && newData.child('from').val() != newData.child('to').val() && $roomId.matches(/^[A-Za-z0-9_-]{1,64}$/) && (data.exists() || (!newData.hasChild('acceptedAt') && !newData.hasChild('cancelledBy') && !newData.hasChild('moves') && !newData.hasChild('settlement') && !newData.hasChild('cancelledAt')))",
           "from": {
             ".validate": "newData.isString() && (!data.exists() || data.val() == newData.val())"
           },
@@ -76,8 +76,8 @@
             }
           },
           "status": {
-            ".write": "(auth != null && (auth.uid == data.parent().child('from').val() || auth.uid == data.parent().child('to').val()) && data.parent().child('status').val() == 'invited' && auth.uid == data.parent().child('to').val() && newData.val() == 'accepted') || (auth != null && (auth.uid == data.parent().child('from').val() || auth.uid == data.parent().child('to').val()) && ((data.val() == 'invited' && newData.val() == 'cancelled') || (data.val() == 'accepted' && newData.val() == 'abandoned')))",
-            ".validate": "(!data.exists() && newData.val() == 'invited') || (data.val() == 'invited' && newData.val() == 'accepted' && newData.parent().parent().parent().child('presence').child(auth.uid).child('state').val() == 'playing' && newData.parent().parent().parent().child('presence').child(auth.uid).child('roomId').val() == $roomId && newData.parent().parent().parent().child('presence').child(data.parent().child('from').val()).child('state').val() == 'playing' && newData.parent().parent().parent().child('presence').child(data.parent().child('from').val()).child('roomId').val() == $roomId && auth.uid == data.parent().child('to').val() && newData.parent().child('acceptedAt').val() == now && data.parent().child('createdAt').val() > now - 60000 && root.child('trigBattle/presence').child(auth.uid).child('state').val() == 'lobby' && root.child('trigBattle/presence').child(data.parent().child('from').val()).child('state').val() == 'inviting' && root.child('trigBattle/presence').child(data.parent().child('from').val()).child('roomId').val() == $roomId && root.child('trigBattle/presence').child(data.parent().child('from').val()).child('lastSeen').val() > now - 15000) || ((auth != null && (auth.uid == data.parent().child('from').val() || auth.uid == data.parent().child('to').val()) && ((data.val() == 'invited' && newData.val() == 'cancelled') || (data.val() == 'accepted' && newData.val() == 'abandoned'))) && newData.parent().child('cancelledBy').val() == auth.uid)"
+            ".write": "!data.parent().child('settlement').exists() && ((auth != null && (auth.uid == data.parent().child('from').val() || auth.uid == data.parent().child('to').val()) && data.parent().child('status').val() == 'invited' && auth.uid == data.parent().child('to').val() && newData.val() == 'accepted') || (auth != null && (auth.uid == data.parent().child('from').val() || auth.uid == data.parent().child('to').val()) && ((data.val() == 'invited' && newData.val() == 'cancelled') || (data.val() == 'accepted' && newData.val() == 'abandoned'))))",
+            ".validate": "(!data.exists() && newData.val() == 'invited') || (data.val() == 'invited' && newData.val() == 'accepted' && newData.parent().parent().parent().child('presence').child(auth.uid).child('state').val() == 'playing' && newData.parent().parent().parent().child('presence').child(auth.uid).child('roomId').val() == $roomId && newData.parent().parent().parent().child('presence').child(data.parent().child('from').val()).child('state').val() == 'playing' && newData.parent().parent().parent().child('presence').child(data.parent().child('from').val()).child('roomId').val() == $roomId && auth.uid == data.parent().child('to').val() && newData.parent().child('acceptedAt').val() == now && data.parent().child('createdAt').val() > now - 60000 && root.child('trigBattle/presence').child(auth.uid).child('state').val() == 'lobby' && root.child('trigBattle/presence').child(data.parent().child('from').val()).child('state').val() == 'inviting' && root.child('trigBattle/presence').child(data.parent().child('from').val()).child('roomId').val() == $roomId && root.child('trigBattle/presence').child(data.parent().child('from').val()).child('lastSeen').val() > now - 15000) || ((auth != null && (auth.uid == data.parent().child('from').val() || auth.uid == data.parent().child('to').val()) && ((data.val() == 'invited' && newData.val() == 'cancelled') || (data.val() == 'accepted' && newData.val() == 'abandoned'))) && newData.parent().child('cancelledBy').val() == auth.uid && newData.parent().child('cancelledAt').val() == now)"
           },
           "acceptedAt": {
             ".write": "auth != null && auth.uid == data.parent().child('to').val() && data.parent().child('status').val() == 'invited' && !data.exists()",
@@ -91,7 +91,7 @@
             "$uid": {
               ".validate": "$uid == root.child('trigBattle/rooms').child($roomId).child('from').val() || $uid == root.child('trigBattle/rooms').child($roomId).child('to').val()",
               "$seq": {
-                ".write": "auth != null && auth.uid == $uid && ($uid == root.child('trigBattle/rooms').child($roomId).child('from').val() || $uid == root.child('trigBattle/rooms').child($roomId).child('to').val()) && root.child('trigBattle/rooms').child($roomId).child('status').val() == 'accepted' && now >= root.child('trigBattle/rooms').child($roomId).child('acceptedAt').val() + 5000 && !data.exists() && newData.exists()",
+                ".write": "auth != null && auth.uid == $uid && ($uid == root.child('trigBattle/rooms').child($roomId).child('from').val() || $uid == root.child('trigBattle/rooms').child($roomId).child('to').val()) && root.child('trigBattle/rooms').child($roomId).child('status').val() == 'accepted' && now >= root.child('trigBattle/rooms').child($roomId).child('acceptedAt').val() + 5000 && !data.exists() && newData.exists() && !root.child('trigBattle/rooms').child($roomId).child('settlement').exists()",
                 ".validate": "newData.child('seq').isNumber() && newData.child('seq').val() >= 0 && newData.child('seq').val() % 1 == 0 && $seq == newData.child('seq').val() + '' && newData.hasChildren(['index','value','at','seq']) && $seq.matches(/^(0|[1-9][0-9]{0,2})$/) && newData.child('seq').val() < 200 && newData.child('index').isNumber() && newData.child('index').val() >= 0 && newData.child('index').val() < 10 && newData.child('index').val() % 1 == 0 && (($seq == '0' && newData.child('index').val() == 0) || ($seq != '0' && data.parent().child((newData.child('seq').val() - 1) + '').exists() && newData.child('index').val() == (data.parent().child((newData.child('seq').val() - 1) + '').child('index').val() + (data.parent().child((newData.child('seq').val() - 1) + '').child('value').val() == root.child('trigBattle/rooms').child($roomId).child('deck').child(data.parent().child((newData.child('seq').val() - 1) + '').child('index').val() + '').child('value').val() ? 1 : 0)))) && newData.child('value').isString() && newData.child('value').val().matches(/^(−√3|−1|−√3\\/2|−√2\\/2|−√3\\/3|−1\\/2|0|1\\/2|√3\\/3|√2\\/2|√3\\/2|1|√3)$/) && newData.child('at').val() == now",
                 "index": {
                   ".validate": true
@@ -113,8 +113,39 @@
           },
           "$other": {
             ".validate": false
+          },
+          "ranked": {
+            ".validate": "newData.isBoolean() && (!data.exists() || data.val() == newData.val()) && (!newData.val() || (root.child('trigBattle/profiles').child(newData.parent().child('from').val()).exists() && root.child('trigBattle/profiles').child(newData.parent().child('to').val()).exists()))"
+          },
+          "settlement": {
+            ".write": false
+          },
+          "cancelledAt": {
+            ".write": "auth != null && (auth.uid == data.parent().child('from').val() || auth.uid == data.parent().child('to').val()) && !data.exists() && !data.parent().child('settlement').exists() && (data.parent().child('status').val() == 'invited' || data.parent().child('status').val() == 'accepted')",
+            ".validate": "newData.isNumber() && newData.val() == now && (newData.parent().child('status').val() == 'cancelled' || newData.parent().child('status').val() == 'abandoned')"
           }
         }
+      },
+      "profiles": {
+        ".read": "auth != null",
+        ".write": false
+      },
+      "ratings": {
+        ".read": "auth != null",
+        ".write": false,
+        ".indexOn": [
+          "rating"
+        ]
+      },
+      "privateProfiles": {
+        "$uid": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": false
+        }
+      },
+      "usernames": {
+        ".read": false,
+        ".write": false
       }
     }
   }
