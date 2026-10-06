@@ -1,5 +1,6 @@
 export const angles=Array.from({length:61},(_,i)=>(i-30)*30).concat(Array.from({length:41},(_,i)=>(i-20)*45)).filter((v,i,a)=>a.indexOf(v)===i).sort((a,b)=>a-b);
 export const values=['−√3','−1','−√3/2','−√2/2','−√3/3','−1/2','0','1/2','√3/3','√2/2','√3/2','1','√3'];
+export function displayValue(value){return ({'−√2/2':'−1/√2','√2/2':'1/√2','−√3/3':'−1/√3','√3/3':'1/√3'})[value]||value;}
 const sin=['0','1/2','√3/2','1','√3/2','1/2','0','−1/2','−√3/2','−1','−√3/2','−1/2'];
 const sin45=['0','√2/2','1','√2/2','0','−√2/2','−1','−√2/2'];
 export function answer(fn,deg){
