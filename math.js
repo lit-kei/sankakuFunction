@@ -24,3 +24,8 @@ export function tex(value){
  const numerator=parts[0].replace(/√(\d+)/g, String.raw`\sqrt{$1}`).replaceAll('π',String.raw`\pi`).replaceAll('°',String.raw`^{\circ}`);
  return (negative?'-':'')+(parts.length===2?String.raw`\frac{${numerator}}{${parts[1]}}`:numerator);
 }
+
+export function formulaTex(fn, angle){
+ if(!['sin','cos','tan'].includes(fn))throw new Error('Unknown trigonometric function');
+ return String.raw`\operatorname{${fn}}\left(${tex(angle)}\right) = \ ?`;
+}
