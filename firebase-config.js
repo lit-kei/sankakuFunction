@@ -6,6 +6,5 @@ export const firebaseConfig = {
   storageBucket: 'sankakufunction.firebasestorage.app',
   messagingSenderId: '839449790888',
   appId: '1:839449790888:web:46223c119e6775b0f0b59d',
-  // Add the exact URL shown in Realtime Database. Do not guess the region.
-  databaseURL: '',
+  databaseURL: 'https://sankakufunction-default-rtdb.firebaseio.com',
 };
