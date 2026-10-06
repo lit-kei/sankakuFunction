@@ -145,7 +145,10 @@ setInterval(()=>{
   if(remaining>0)$('countdown').textContent=`${Math.ceil(remaining/1000)} 秒後にスタート`;
   else{$('clock').textContent=`${((backend.now()-room.acceptedAt-COUNTDOWN_MS)/1000).toFixed(2)} s`;renderMatch();}
   const other=room.from===backend.uid?room.to:room.from;
-  if(!players[other]||players[other].lastSeen<backend.now()-15000)$('race-feedback').textContent='相手の接続が切れています。再接続を待つか、対戦を終了してください。';
+  const connectionWarning='相手の接続が切れています。再接続を待つか、対戦を終了してください。';
+  const opponentStale=!players[other]||players[other].lastSeen<backend.now()-30000;
+  if(opponentStale)$('race-feedback').textContent=connectionWarning;
+  else if($('race-feedback').textContent===connectionWarning)$('race-feedback').textContent='';
  }
 },100);
 if(!isConfigured())message('オンライン対戦は Firebase の接続設定を準備中です。お試し対戦は同じブラウザーの2つのタブで利用できます。');
