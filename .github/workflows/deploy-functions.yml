@@ -1,6 +1,12 @@
 name: Deploy global chat cleanup to Firebase
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - 'scripts/prepare-functions.js'
+      - '.github/workflows/deploy-functions.yml'
 permissions:
   contents: read
 jobs:
