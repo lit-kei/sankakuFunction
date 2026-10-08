@@ -6,6 +6,7 @@ import {connectDemo} from './battle-demo.js';
 import {getServices} from './firebase-client.js';
 
 const $=id=>document.getElementById(id);
+let latestChatMessages={};
 let backend=null,players={},room=null,roomId=null,subscriptions=[],unRoom=null,busy=false,lastQuestion='',lastResult='',localPenaltyUntil=0,inboxGeneration=0,connected=true;
 const pending=new Set();let invitationIds=[],lobbySignature='',ratingData={},profileData={};
 function message(text=''){$('notice').textContent=text;}
@@ -16,8 +17,9 @@ function button(text,fn,disabled=false){const b=document.createElement('button')
 function playerRow(name,description){const row=document.createElement('div');row.className='player-row';const avatar=document.createElement('div');avatar.className='avatar';avatar.textContent=Array.from(name)[0]||'?';const info=document.createElement('div');info.className='player-info';const title=document.createElement('b');title.textContent=name;const sub=document.createElement('small');sub.textContent=description;info.append(title,sub);row.append(avatar,info);return row;}
 function empty(container,text){const p=document.createElement('p');p.className='empty-list';p.textContent=text;container.append(p);}
 function renderChat(messages){
+ latestChatMessages=messages;
  const container=$('chat-messages'),nearBottom=container.scrollHeight-container.scrollTop-container.clientHeight<40;
- container.replaceChildren();const entries=Object.values(messages||{}).filter(item=>item&&typeof item.text==='string').sort((a,b)=>a.at-b.at).slice(-30);
+ container.replaceChildren();const entries=Object.values(messages||{}).filter(item=>item&&typeof item.text==='string'&&Number.isFinite(item.at)&&item.at>Date.now()-24*60*60*1000).sort((a,b)=>a.at-b.at).slice(-30);
  if(!entries.length)empty(container,'まだメッセージはありません。');
  for(const item of entries){const row=document.createElement('div');row.className='chat-message';const name=document.createElement('b');name.textContent=item.name;const text=document.createElement('span');text.textContent=item.text;const time=document.createElement('time');time.textContent=Number.isFinite(item.at)?new Date(item.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'';row.append(name,text,time);container.append(row);}
  if(nearBottom)container.scrollTop=container.scrollHeight;
@@ -168,3 +170,6 @@ async function refreshSession(){
  }catch{ /* Login link remains usable if the network is unavailable. */ }
 }
 refreshSession();
+
+// Re-evaluate expiry while the chat remains open, even without new messages.
+setInterval(()=>{if(backend)renderChat(latestChatMessages);},60000);
