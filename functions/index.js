@@ -3,6 +3,7 @@ import {getDatabase} from 'firebase-admin/database';
 import {randomUUID} from 'node:crypto';
 import {onCall,HttpsError} from 'firebase-functions/v2/https';
 import {onValueWritten} from 'firebase-functions/v2/database';
+import {onSchedule} from 'firebase-functions/v2/scheduler';
 import {setGlobalOptions} from 'firebase-functions/v2';
 import {validateRegistration} from './shared/account-model.js';
 import {makeDeck} from './shared/battle-engine.js';
@@ -53,4 +54,18 @@ export const settleMatch=onValueWritten({ref:'trigBattle/rooms/{roomId}',instanc
   // Read the latest room in a transaction, rather than settling a stale event.
   const root=getDatabase().ref('trigBattle');
   await root.transaction(createSettlementTransaction(event.params.roomId),undefined,false);
+});
+
+// Remove chat messages older than 24 hours. Bounded batches keep each run short.
+export const cleanupGlobalChat=onSchedule({schedule:'every 15 minutes',timeZone:'Etc/UTC',retryCount:0},async()=>{
+  const messages=getDatabase().ref('trigBattle/chat/messages');
+  const cutoff=Date.now()-24*60*60*1000;
+  for(let batch=0;batch<10;batch++){
+    const snapshot=await messages.orderByChild('at').endAt(cutoff).limitToFirst(500).get();
+    if(!snapshot.exists())break;
+    const updates={};
+    snapshot.forEach(child=>{updates[child.key]=null;});
+    await messages.update(updates);
+    if(snapshot.numChildren()<500)break;
+  }
 });
